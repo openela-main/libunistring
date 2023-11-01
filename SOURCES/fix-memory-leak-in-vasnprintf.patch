@@ -1,0 +1,85 @@
+diff -ru libunistring-0.9.10/lib/vasnprintf.c libunistring-0.9.10.new/lib/vasnprintf.c
+--- libunistring-0.9.10/lib/vasnprintf.c	2018-05-25 18:02:16.000000000 +0200
++++ libunistring-0.9.10.new/lib/vasnprintf.c	2021-06-14 17:06:43.084948649 +0200
+@@ -1864,7 +1864,7 @@
+ 
+     /* Ensures that allocated >= needed.  Aborts through a jump to
+        out_of_memory if needed is SIZE_MAX or otherwise too big.  */
+-#define ENSURE_ALLOCATION(needed) \
++#define ENSURE_ALLOCATION_ELSE(needed, oom_statement) \
+     if ((needed) > allocated)                                                \
+       {                                                                      \
+         size_t memory_size;                                                  \
+@@ -1875,17 +1875,19 @@
+           allocated = (needed);                                              \
+         memory_size = xtimes (allocated, sizeof (DCHAR_T));                  \
+         if (size_overflow_p (memory_size))                                   \
+-          goto out_of_memory;                                                \
++          oom_statement                                                      \
+         if (result == resultbuf || result == NULL)                           \
+           memory = (DCHAR_T *) malloc (memory_size);                         \
+         else                                                                 \
+           memory = (DCHAR_T *) realloc (result, memory_size);                \
+         if (memory == NULL)                                                  \
+-          goto out_of_memory;                                                \
++          oom_statement                                                      \
+         if (result == resultbuf && length > 0)                               \
+           DCHAR_CPY (memory, result, length);                                \
+         result = memory;                                                     \
+       }
++#define ENSURE_ALLOCATION(needed) \
++  ENSURE_ALLOCATION_ELSE((needed), goto out_of_memory; )
+ 
+     for (cp = format, i = 0, dp = &d.dir[0]; ; cp = dp->dir_end, i++, dp++)
+       {
+@@ -2137,7 +2139,8 @@
+                           }
+                         if (converted != result + length)
+                           {
+-                            ENSURE_ALLOCATION (xsum (length, converted_len));
++                            ENSURE_ALLOCATION_ELSE (xsum (length, converted_len),
++                                                    { free (converted); goto out_of_memory; });
+                             DCHAR_CPY (result + length, converted, converted_len);
+                             free (converted);
+                           }
+@@ -2263,7 +2266,8 @@
+                           }
+                         if (converted != result + length)
+                           {
+-                            ENSURE_ALLOCATION (xsum (length, converted_len));
++                            ENSURE_ALLOCATION_ELSE (xsum (length, converted_len),
++                                                    { free (converted); goto out_of_memory; });
+                             DCHAR_CPY (result + length, converted, converted_len);
+                             free (converted);
+                           }
+@@ -2389,7 +2393,8 @@
+                           }
+                         if (converted != result + length)
+                           {
+-                            ENSURE_ALLOCATION (xsum (length, converted_len));
++                            ENSURE_ALLOCATION_ELSE (xsum (length, converted_len),
++                                                    { free (converted); goto out_of_memory; });
+                             DCHAR_CPY (result + length, converted, converted_len);
+                             free (converted);
+                           }
+@@ -2914,7 +2919,8 @@
+                         }
+                     }
+ #  else
+-                  ENSURE_ALLOCATION (xsum (length, tmpdst_len));
++                  ENSURE_ALLOCATION_ELSE (xsum (length, tmpdst_len),
++                                          { free (tmpdst); goto out_of_memory; });
+                   DCHAR_CPY (result + length, tmpdst, tmpdst_len);
+                   free (tmpdst);
+                   length += tmpdst_len;
+@@ -5368,7 +5374,8 @@
+                             errno = saved_errno;
+                             return NULL;
+                           }
+-                        ENSURE_ALLOCATION (xsum (length, tmpdst_len));
++                        ENSURE_ALLOCATION_ELSE (xsum (length, tmpdst_len),
++                                                { free (tmpdst); goto out_of_memory; });
+                         DCHAR_CPY (result + length, tmpdst, tmpdst_len);
+                         free (tmpdst);
+                         count = tmpdst_len;
+libunistring-0.9.10.new/lib のみに存在: vasnprintf.c.orig
